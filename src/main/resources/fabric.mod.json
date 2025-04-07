@@ -1,0 +1,54 @@
+{
+	"schemaVersion": 1,
+	"id": "vespera-lumen-anticheat",
+	"version": "${version}",
+	"name": "Vespera Lumen AntiCheat",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/vespera-lumen-anticheat/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			{
+				"value": "com.mengyangx.vlac.VesperaLumenAntiCheat",
+				"adapter": "kotlin"
+			}
+		],
+		"client": [
+			{
+				"value": "com.mengyangx.vlac.VesperaLumenAntiCheatClient",
+				"adapter": "kotlin"
+			}
+		],
+		"fabric-datagen": [
+			{
+				"value": "com.mengyangx.vlac.VesperaLumenAntiCheatDataGenerator",
+				"adapter": "kotlin"
+			}
+		]
+	},
+	"mixins": [
+		"vespera-lumen-anticheat.mixins.json",
+		{
+			"config": "vespera-lumen-anticheat.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.12",
+		"minecraft": "~1.21.5",
+		"java": ">=21",
+		"fabric-api": "*",
+		"fabric-language-kotlin": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
