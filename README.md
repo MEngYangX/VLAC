@@ -1,2 +1,0 @@
-# VLAC
-VesperaLumen AntiCheat (VLAC)
