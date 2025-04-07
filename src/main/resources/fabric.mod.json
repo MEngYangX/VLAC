@@ -3,7 +3,7 @@
 	"id": "vespera-lumen-anticheat",
 	"version": "${version}",
 	"name": "Vespera Lumen AntiCheat",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "一个强大的反作弊模组，支持LuckPerms权限系统",
 	"authors": [
 		"Me!"
 	],
@@ -49,6 +49,6 @@
 		"fabric-language-kotlin": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
+		"luckperms": ">=5.4"
 	}
 }
