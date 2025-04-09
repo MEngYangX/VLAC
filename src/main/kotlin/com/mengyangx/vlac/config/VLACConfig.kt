@@ -1,9 +1,8 @@
 package com.mengyangx.vlac.config
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import org.slf4j.LoggerFactory
+import com.mengyangx.vlac.util.LogManager
+import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.io.FileReader
 import java.io.FileWriter
@@ -12,36 +11,40 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
- * VLAC模组的配置系统
+ * VLAC Configuration System
  */
 object VLACConfig {
-    private val logger = LoggerFactory.getLogger("vespera-lumen-anticheat")
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val dumperOptions = DumperOptions().apply {
+        defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
+        isPrettyFlow = true
+    }
+    private val yaml = Yaml(dumperOptions)
     private var configDir: Path? = null
     private var configFile: File? = null
     
-    // 默认配置
-    private var config = JsonObject()
-    
-    // 权限配置
+    // Configuration settings
+    private var enabled = true
+    private var language = "en_US"
+    private var debug = false
     private var useLuckPerms = true
     private var bypassGroups = mutableListOf("admin", "mod")
 
     /**
-     * 初始化配置系统
+     * Initialize configuration system
      * 
-     * @param configDir 配置目录的路径
+     * @param baseConfigDir Base configuration directory path
      */
-    fun init(configDir: Path) {
-        this.configDir = configDir
-        this.configFile = Paths.get(configDir.toString(), "vlac-config.json").toFile()
+    fun init(baseConfigDir: Path) {
+        // Create VLAC directory in config folder
+        this.configDir = baseConfigDir
+        this.configFile = Paths.get(configDir.toString(), "config.yml").toFile()
         
         if (!Files.exists(configDir)) {
             try {
                 Files.createDirectories(configDir)
-                logger.info("创建配置目录: $configDir")
+                LogManager.info("Created configuration directory: $configDir")
             } catch (e: Exception) {
-                logger.error("无法创建配置目录: ${e.message}")
+                LogManager.error("Could not create configuration directory: ${e.message}")
                 return
             }
         }
@@ -50,31 +53,34 @@ object VLACConfig {
     }
     
     /**
-     * 加载配置文件
+     * Load configuration file
      */
     private fun loadConfig() {
-        if (configFile?.exists() == true) {
+        if (configFile!!.exists()) {
             try {
                 FileReader(configFile!!).use { reader ->
-                    config = gson.fromJson(reader, JsonObject::class.java)
-                    logger.info("已加载配置文件")
+                    val config = yaml.load<Map<String, Any>>(reader)
+                    LogManager.info("Configuration file loaded")
                     
-                    // 读取权限配置
-                    if (config.has("permissions")) {
-                        val permissionsObj = config.getAsJsonObject("permissions")
-                        useLuckPerms = permissionsObj.get("useLuckPerms")?.asBoolean ?: true
+                    // Read main configuration
+                    enabled = config["enabled"] as? Boolean ?: true
+                    language = config["language"] as? String ?: "en_US"
+                    debug = config["debug"] as? Boolean ?: false
+                    
+                    // Read permissions configuration
+                    val permissionsSection = config["permissions"] as? Map<String, Any>
+                    if (permissionsSection != null) {
+                        useLuckPerms = permissionsSection["useLuckPerms"] as? Boolean ?: true
                         
-                        if (permissionsObj.has("bypassGroups")) {
+                        val groups = permissionsSection["bypassGroups"] as? List<String>
+                        if (groups != null) {
                             bypassGroups.clear()
-                            val bypassGroupsArray = permissionsObj.getAsJsonArray("bypassGroups")
-                            bypassGroupsArray.forEach { 
-                                bypassGroups.add(it.asString) 
-                            }
+                            bypassGroups.addAll(groups)
                         }
                     }
                 }
             } catch (e: Exception) {
-                logger.error("加载配置文件时出错: ${e.message}")
+                LogManager.error("Error loading configuration file: ${e.message}")
                 createDefaultConfig()
             }
         } else {
@@ -83,76 +89,147 @@ object VLACConfig {
     }
     
     /**
-     * 创建默认配置文件
+     * Create default configuration file
      */
     private fun createDefaultConfig() {
-        // 创建基本配置结构
-        config = JsonObject()
+        // Create configuration structure
+        val config = mutableMapOf<String, Any>()
         
-        // 常规配置
-        val generalObj = JsonObject()
-        generalObj.addProperty("enabled", true)
-        generalObj.addProperty("notifyAdmins", true)
-        config.add("general", generalObj)
+        // Main configuration
+        config["enabled"] = true
+        config["language"] = "en_US"
+        config["debug"] = false
         
-        // 权限配置
-        val permissionsObj = JsonObject()
-        permissionsObj.addProperty("useLuckPerms", true)
-        val bypassGroupsArray = gson.toJsonTree(bypassGroups).asJsonArray
-        permissionsObj.add("bypassGroups", bypassGroupsArray)
-        config.add("permissions", permissionsObj)
+        // Permissions configuration
+        val permissionsMap = mutableMapOf<String, Any>()
+        permissionsMap["useLuckPerms"] = true
+        permissionsMap["bypassGroups"] = bypassGroups
+        config["permissions"] = permissionsMap
         
-        // 检测配置
-        val detectionsObj = JsonObject()
+        // Detection configuration
+        val detectionsMap = mutableMapOf<String, Any>()
         
-        // 飞行检测
-        val flyObj = JsonObject()
-        flyObj.addProperty("enabled", true)
-        flyObj.addProperty("sensitivity", 2)
-        detectionsObj.add("fly", flyObj)
+        // Fly detection
+        val flyMap = mutableMapOf<String, Any>()
+        flyMap["enabled"] = true
+        flyMap["sensitivity"] = 2
+        detectionsMap["fly"] = flyMap
         
-        // 速度检测
-        val speedObj = JsonObject()
-        speedObj.addProperty("enabled", true)
-        speedObj.addProperty("maxSpeed", 0.8)
-        detectionsObj.add("speed", speedObj)
+        // Speed detection
+        val speedMap = mutableMapOf<String, Any>()
+        speedMap["enabled"] = true
+        speedMap["maxSpeed"] = 0.8
+        detectionsMap["speed"] = speedMap
         
-        config.add("detections", detectionsObj)
+        config["detections"] = detectionsMap
         
-        // 处罚配置
-        val punishmentsObj = JsonObject()
-        punishmentsObj.addProperty("defaultAction", "warn")
-        punishmentsObj.addProperty("warnMessage", "§c[VLAC] 检测到可能的作弊行为")
-        punishmentsObj.addProperty("kickMessage", "§c[VLAC] 您因可能的作弊行为被踢出服务器")
-        config.add("punishments", punishmentsObj)
+        // Punishment configuration
+        val punishmentsMap = mutableMapOf<String, Any>()
+        punishmentsMap["defaultAction"] = "warn"
+        punishmentsMap["warnMessage"] = "§c[VLAC] Potential cheating behavior detected"
+        punishmentsMap["kickMessage"] = "§c[VLAC] You have been kicked for potential cheating behavior"
+        config["punishments"] = punishmentsMap
         
-        saveConfig()
-        logger.info("已创建默认配置文件")
+        saveConfig(config)
+        LogManager.info("Default configuration file created")
     }
     
     /**
-     * 保存配置到文件
+     * Save configuration to file
      */
-    fun saveConfig() {
+    private fun saveConfig(config: Map<String, Any> = getCurrentConfig()) {
         try {
             FileWriter(configFile!!).use { writer ->
-                gson.toJson(config, writer)
+                yaml.dump(config, writer)
             }
-            logger.info("已保存配置文件")
+            LogManager.info("Configuration file saved")
         } catch (e: Exception) {
-            logger.error("保存配置文件时出错: ${e.message}")
+            LogManager.error("Error saving configuration file: ${e.message}")
         }
     }
     
     /**
-     * 获取是否使用LuckPerms
+     * Get current configuration
+     */
+    private fun getCurrentConfig(): Map<String, Any> {
+        val config = mutableMapOf<String, Any>()
+        
+        // Main configuration
+        config["enabled"] = enabled
+        config["language"] = language
+        config["debug"] = debug
+        
+        // Permissions configuration
+        val permissionsMap = mutableMapOf<String, Any>()
+        permissionsMap["useLuckPerms"] = useLuckPerms
+        permissionsMap["bypassGroups"] = bypassGroups
+        config["permissions"] = permissionsMap
+        
+        return config
+    }
+    
+    /**
+     * Check if mod is enabled
+     */
+    fun isEnabled(): Boolean {
+        return enabled
+    }
+    
+    /**
+     * Set mod enabled state
+     */
+    fun setEnabled(value: Boolean) {
+        enabled = value
+        saveConfig()
+    }
+    
+    /**
+     * Get mod language
+     */
+    fun getLanguage(): String {
+        return language
+    }
+    
+    /**
+     * Set mod language
+     */
+    fun setLanguage(value: String) {
+        language = value
+        saveConfig()
+    }
+    
+    /**
+     * Check if debug mode is enabled
+     */
+    fun isDebugEnabled(): Boolean {
+        return debug
+    }
+    
+    /**
+     * Set debug mode
+     */
+    fun setDebug(value: Boolean) {
+        debug = value
+        saveConfig()
+    }
+    
+    /**
+     * Reload configuration
+     */
+    fun reload() {
+        loadConfig()
+        LogManager.info("Configuration reloaded")
+    }
+
+    /**
+     * Check if LuckPerms is enabled
      */
     fun isLuckPermsEnabled(): Boolean {
         return useLuckPerms
     }
     
     /**
-     * 获取豁免组列表
+     * Get bypass groups list
      */
     fun getBypassGroups(): List<String> {
         return bypassGroups

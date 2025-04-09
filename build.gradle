@@ -55,6 +55,9 @@ dependencies {
 	
 	// LuckPerms API
 	modCompileOnly "net.luckperms:api:5.4"
+	
+	// SnakeYAML for YAML configuration files
+	implementation 'org.yaml:snakeyaml:2.0'
 }
 
 processResources {

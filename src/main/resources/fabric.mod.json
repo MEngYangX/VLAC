@@ -3,7 +3,7 @@
 	"id": "vespera-lumen-anticheat",
 	"version": "${version}",
 	"name": "Vespera Lumen AntiCheat",
-	"description": "一个强大的反作弊模组，支持LuckPerms权限系统",
+	"description": "A powerful anti-cheat mod with LuckPerms permission system support",
 	"authors": [
 		"Me!"
 	],
@@ -46,7 +46,11 @@
 		"minecraft": "~1.21.5",
 		"java": ">=21",
 		"fabric-api": "*",
-		"fabric-language-kotlin": "*"
+		"fabric-language-kotlin": "*",
+		"fabric": "*"
+	},
+	"softDepends": {
+		"luckperms": ">=5.4"
 	},
 	"suggests": {
 		"luckperms": ">=5.4"
