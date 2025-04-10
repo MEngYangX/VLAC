@@ -4,342 +4,377 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.mengyangx.vlac.VesperaLumenAntiCheat
-import com.mengyangx.vlac.config.VLACConfig
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper
-import net.fabricmc.fabric.api.resource.ResourcePackActivationType
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.resource.ResourceType
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
-import org.slf4j.LoggerFactory
+import org.apache.logging.log4j.LogManager
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileReader
 import java.io.FileWriter
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.*
 
 /**
- * Language manager for VLAC
- * 
- * Handles both built-in language files (assets/vespera-lumen-anticheat/lang/*.json)
- * and dynamic runtime language files (config/vlac/lang/*.json)
+ * Language manager for VLAC.
  */
 object LanguageManager {
-    private val logger = LoggerFactory.getLogger("VLAC")
-    private val MOD_ID = VesperaLumenAntiCheat.MOD_ID
-    private val extraTranslations = mutableMapOf<String, MutableMap<String, String>>()
-    private var currentLanguage = "en_us"  // Always use English by default
+    private val logger = LogManager.getLogger(LanguageManager::class.java)
     private val gson = GsonBuilder().setPrettyPrinting().create()
-    
+    private var languageDir = Path.of("VLAC/lang")
+    private var currentLanguage = "en_US"
+    private val translations = mutableMapOf<String, Map<String, String>>()
+    private val defaultLanguages = arrayOf("en_US", "zh_CN")
+
     /**
-     * Register built-in language files to Minecraft's resource system
-     * This should be called during mod initialization
-     */
-    fun registerLanguageFiles() {
-        try {
-            logger.info("Registering VLAC language files...")
-            
-            // Register the mod's resource pack with Minecraft
-            // This will load the language files from assets/vespera-lumen-anticheat/lang/*.json
-            ResourceManagerHelper.registerBuiltinResourcePack(
-                Identifier(MOD_ID, "languages"),
-                FabricLoader.getInstance().getModContainer(MOD_ID).orElseThrow(),
-                ResourcePackActivationType.DEFAULT_ENABLED
-            )
-            
-            logger.info("VLAC language files registered successfully")
-        } catch (e: Exception) {
-            logger.error("Failed to register language files: ${e.message}")
-        }
-    }
-    
-    /**
-     * Initialize language manager
+     * 初始化语言管理器
+     * 
+     * @param langDir 语言文件目录
      */
     fun init(langDir: Path) {
+        this.languageDir = langDir
+        registerLanguageFiles()
+    }
+
+    fun registerLanguageFiles() {
         try {
-            // Create custom language directory if not exists
-            val dir = langDir.toFile()
-            if (!dir.exists()) {
-                dir.mkdirs()
-                logger.info("Created custom language directory: $langDir")
+            if (!Files.exists(languageDir)) {
+                Files.createDirectories(languageDir)
+                logger.info("Created language directory: $languageDir")
             }
-            
-            // Migrate old format files (yaml/properties) to JSON if they exist
-            migrateOldFormatFiles(dir)
-            
-            // Load custom language files
-            loadCustomLanguages(dir)
-            
-            // Always use English
-            currentLanguage = "en_us"
-            logger.info("Current language set to: $currentLanguage")
-            
+
+            migrateOldFormat()
+            createDefaultJsonLanguages()
+            loadCustomLanguages()
+
+            // 修复对config的引用，直接使用默认语言
+            // 由于VesperaLumenAntiCheat.config可能未初始化，我们暂时使用默认语言
+            // val configLanguage = VesperaLumenAntiCheat.config.getConfig().language
+            // if (configLanguage.isNotEmpty()) {
+            //     setLanguage(configLanguage)
+            // }
         } catch (e: Exception) {
-            logger.error("Failed to initialize language manager: ${e.message}")
+            logger.error("Failed to register language files: ${e.message}")
+            e.printStackTrace()
         }
     }
-    
+
     /**
-     * Migrate old format files (yaml/properties) to JSON
+     * Migrates old format properties files to new JSON format
      */
-    private fun migrateOldFormatFiles(dir: File) {
+    private fun migrateOldFormat() {
         try {
-            // Check for old .yml files
-            val enYmlFile = File(dir, "en_US.yml")
-            
-            // Check for old .properties files
-            val enPropsFile = File(dir, "en_US.properties")
-            
-            // Just log their existence - full migration would be complex
-            // and requires converting nested YAML structure to flat keys
-            if (enYmlFile.exists()) {
-                logger.info("Found old YAML language files. These are no longer supported. " +
-                           "Please use JSON format language files.")
+            Files.list(languageDir).forEach { file ->
+                val fileName = file.fileName.toString()
+                if (fileName.endsWith(".properties")) {
+                    val langCode = fileName.substringBeforeLast(".")
+                    logger.info("Migrating $fileName to JSON format...")
+                    
+                    val properties = Properties()
+                    FileReader(file.toFile(), StandardCharsets.UTF_8).use { reader ->
+                        properties.load(reader)
+                    }
+                    
+                    val entries = mutableMapOf<String, String>()
+                    properties.forEach { key, value ->
+                        entries[key.toString()] = value.toString()
+                    }
+                    
+                    val jsonFile = languageDir.resolve("$langCode.json")
+                    FileWriter(jsonFile.toFile(), StandardCharsets.UTF_8).use { writer ->
+                        gson.toJson(entries, writer)
+                    }
+                    
+                    Files.delete(file)
+                    logger.info("Successfully migrated $fileName to $langCode.json")
+                }
             }
-            
-            if (enPropsFile.exists()) {
-                logger.info("Found old properties language files. These are no longer supported. " +
-                           "Please use JSON format language files.")
-            }
-            
-            // Create default JSON language file
-            createDefaultLanguageFile(dir, "en_us")
-            
         } catch (e: Exception) {
             logger.error("Failed to migrate old format files: ${e.message}")
         }
     }
-    
+
     /**
-     * Create default JSON language file
+     * Creates default JSON language files if they don't exist
      */
-    private fun createDefaultLanguageFile(dir: File, lang: String) {
-        val file = File(dir, "$lang.json")
-        if (!file.exists()) {
-            try {
-                val translations = mutableMapOf<String, String>()
+    private fun createDefaultJsonLanguages() {
+        for (lang in defaultLanguages) {
+            val file = languageDir.resolve("$lang.json")
+            if (!Files.exists(file)) {
+                logger.info("Creating default language file: $lang.json")
                 
-                // English translations
-                translations["vlac.status.enabled"] = "Enabled"
-                translations["vlac.status.disabled"] = "Disabled"
-                translations["vlac.status.title"] = "VLAC Status"
-                translations["vlac.status.mod"] = "Mod Status"
-                translations["vlac.status.debug"] = "Debug Mode"
-                translations["vlac.status.language"] = "Language"
-                translations["vlac.status.luckperms"] = "LuckPerms Support"
-                translations["vlac.status.memory"] = "Memory Usage"
+                val entries = createDefaultTranslations(lang)
                 
-                // Command messages
-                translations["vlac.command.help.title"] = "VLAC Commands:"
-                translations["vlac.command.help.reload"] = "/vlac reload - Reload configuration"
-                translations["vlac.command.help.toggle"] = "Toggle VLAC on/off"
-                translations["vlac.command.help.debug"] = "/vlac debug - Manage debug mode"
-                translations["vlac.command.help.language"] = "Change language"
-                translations["vlac.command.help.status"] = "Show VLAC status"
-                translations["vlac.command.help.exempt"] = "Add/remove player exemption"
-                translations["vlac.command.help.help"] = "Show this help message"
+                FileWriter(file.toFile(), StandardCharsets.UTF_8).use { writer ->
+                    gson.toJson(entries, writer)
+                }
                 
-                translations["vlac.command.reload.success"] = "Configuration reloaded successfully"
-                translations["vlac.command.reload.failed"] = "Failed to reload configuration: %s"
-                translations["vlac.command.reload.log"] = "Configuration reloaded by"
-                translations["vlac.command.reload.error"] = "Error reloading configuration"
-                translations["vlac.command.reload.usage"] = "Usage: /vlac reload"
-                translations["vlac.command.reload.help"] = "Reload VLAC configuration"
+                logger.info("Created default language file: $lang.json")
+            }
+            
+            // Load the language
+            loadLanguage(lang)
+        }
+    }
+
+    /**
+     * Creates default translations for a given language
+     */
+    private fun createDefaultTranslations(lang: String): Map<String, String> {
+        val entries = mutableMapOf<String, String>()
+        
+        when (lang) {
+            "en_US" -> {
+                // Debug command
+                entries["vlac.command.debug.help"] = "Debug commands for VLAC"
+                entries["vlac.command.debug.enable"] = "Enable debug mode"
+                entries["vlac.command.debug.disable"] = "Disable debug mode"
+                entries["vlac.command.debug.enabled"] = "Debug mode enabled"
+                entries["vlac.command.debug.disabled"] = "Debug mode disabled"
+                entries["vlac.command.debug.add"] = "Add player to exempt list"
+                entries["vlac.command.debug.remove"] = "Remove player from exempt list"
+                entries["vlac.command.debug.list"] = "List all exempt players"
+                entries["vlac.command.debug.added"] = "Added %s to exempt list"
+                entries["vlac.command.debug.removed"] = "Removed %s from exempt list"
+                entries["vlac.command.debug.exempt_list"] = "Exempt players: %s"
+                entries["vlac.command.debug.enable_success"] = "Debug mode enabled successfully"
+                entries["vlac.command.debug.disable_success"] = "Debug mode disabled successfully"
+                entries["vlac.command.debug.enable_log"] = "Debug mode enabled by"
+                entries["vlac.command.debug.disable_log"] = "Debug mode disabled by"
                 
-                translations["vlac.command.toggle.current"] = "Current status"
-                translations["vlac.command.toggle.enabled"] = "Enabled"
-                translations["vlac.command.toggle.disabled"] = "Disabled"
-                translations["vlac.command.toggle.enable_success"] = "VLAC enabled successfully"
-                translations["vlac.command.toggle.disable_success"] = "VLAC disabled successfully"
-                translations["vlac.command.toggle.enable_log"] = "VLAC enabled by"
-                translations["vlac.command.toggle.disable_log"] = "VLAC disabled by"
+                // Language command
+                entries["vlac.command.help.title"] = "VLAC Commands:"
+                entries["vlac.command.help.reload"] = "Reload configuration"
+                entries["vlac.command.help.toggle"] = "Toggle VLAC on/off"
+                entries["vlac.command.help.debug"] = "Manage debug mode"
+                entries["vlac.command.help.language"] = "Change language"
+                entries["vlac.command.help.status"] = "Show VLAC status"
+                entries["vlac.command.help.exempt"] = "Add/remove player exemption"
+                entries["vlac.command.help.help"] = "Show this help message"
                 
-                translations["vlac.command.debug.current"] = "Debug mode"
-                translations["vlac.command.debug.enabled"] = "Debug mode enabled"
-                translations["vlac.command.debug.disabled"] = "Debug mode disabled"
-                translations["vlac.command.debug.added"] = "Added %s to debug exempt list"
-                translations["vlac.command.debug.removed"] = "Removed %s from debug exempt list"
-                translations["vlac.command.debug.toggle"] = "Debug mode: %s"
-                translations["vlac.command.debug.usage"] = "Usage: /vlac debug <enable|disable|toggle|add|remove> [player]"
-                translations["vlac.command.debug.help"] = "Enable or disable debug mode"
-                translations["vlac.command.debug.failed"] = "Failed to set debug mode"
-                translations["vlac.command.debug.enable_success"] = "Debug mode enabled successfully"
-                translations["vlac.command.debug.disable_success"] = "Debug mode disabled successfully"
-                translations["vlac.command.debug.enable_log"] = "Debug mode enabled by"
-                translations["vlac.command.debug.disable_log"] = "Debug mode disabled by"
+                entries["vlac.command.language.help"] = "Change language"
+                entries["vlac.command.language.change"] = "Change language to %s"
+                entries["vlac.command.language.list"] = "List all available languages"
+                entries["vlac.command.language.current"] = "Current language: %s"
+                entries["vlac.command.language.available"] = "Available languages: %s"
+                entries["vlac.command.language.changed"] = "Language changed to %s"
+                entries["vlac.command.language.not_found"] = "Language %s not found"
+                entries["vlac.command.language.success"] = "Language changed to"
+                entries["vlac.command.language.failed"] = "Failed to change language"
+                entries["vlac.command.language.unsupported"] = "Unsupported language"
+                entries["vlac.command.language.log"] = "Language changed by"
+                entries["vlac.command.language.error"] = "Error changing language"
                 
-                translations["vlac.command.language.current"] = "Current language"
-                translations["vlac.command.language.success"] = "Language changed to"
-                translations["vlac.command.language.failed"] = "Failed to change language"
-                translations["vlac.command.language.unsupported"] = "Unsupported language"
-                translations["vlac.command.language.available"] = "Available languages: %s"
-                translations["vlac.command.language.log"] = "Language changed by"
-                translations["vlac.command.language.error"] = "Error changing language"
-                translations["vlac.command.lang.changed"] = "Language changed to %s"
-                translations["vlac.command.lang.notfound"] = "Language %s not found"
-                translations["vlac.command.lang.usage"] = "Usage: /vlac lang <language>"
-                translations["vlac.command.lang.help"] = "Change the language"
+                // Toggle command
+                entries["vlac.command.toggle.enable_success"] = "VLAC enabled successfully"
+                entries["vlac.command.toggle.disable_success"] = "VLAC disabled successfully"
+                entries["vlac.command.toggle.enable_log"] = "VLAC enabled by"
+                entries["vlac.command.toggle.disable_log"] = "VLAC disabled by"
                 
-                translations["vlac.command.exempt.player_not_found"] = "Player not found"
-                translations["vlac.command.exempt.added"] = "Player added to exemption list"
-                translations["vlac.command.exempt.removed"] = "Player removed from exemption list"
-                translations["vlac.command.exempt.invalid_state"] = "Invalid state. Use 'add' or 'remove'"
-                translations["vlac.command.exempt.failed"] = "Failed to update exemption list"
+                // Reload command
+                entries["vlac.command.reload.success"] = "Configuration reloaded successfully"
+                entries["vlac.command.reload.failed"] = "Failed to reload configuration: %s"
+                
+                // Exempt command
+                entries["vlac.command.exempt.player_not_found"] = "Player not found: %s"
+                entries["vlac.command.exempt.added"] = "Player added to exemption list: %s"
+                entries["vlac.command.exempt.removed"] = "Player removed from exemption list: %s"
+                entries["vlac.command.exempt.invalid_state"] = "Invalid state. Use 'add' or 'remove'"
+                entries["vlac.command.exempt.failed"] = "Failed to update exemption list: %s"
+                
+                // Status display
+                entries["vlac.status.enabled"] = "Enabled"
+                entries["vlac.status.disabled"] = "Disabled"
+                entries["vlac.status.title"] = "VLAC Status"
+                entries["vlac.status.mod"] = "Mod Status"
+                entries["vlac.status.debug"] = "Debug Mode"
+                entries["vlac.status.language"] = "Language"
+                entries["vlac.status.luckperms"] = "LuckPerms Support"
+                entries["vlac.status.memory"] = "Memory Usage"
                 
                 // System messages
-                translations["vlac.system.language.reloaded"] = "Language files reloaded"
-                translations["vlac.system.language.reload_failed"] = "Failed to reload language files: %s"
-                translations["vlac.system.config.loading"] = "Loading configuration..."
-                translations["vlac.system.config.loaded"] = "Configuration loaded"
-                translations["vlac.system.commands.registered"] = "VLAC commands registered"
-                translations["vlac.system.luckperms.connected"] = "Successfully connected to LuckPerms API"
-                translations["vlac.system.luckperms.connection_failed"] = "Failed to connect to LuckPerms API"
-                translations["vlac.system.luckperms.init_failed"] = "Failed to initialize LuckPerms: %s"
-                translations["vlac.system.debug.enabled"] = "Debug mode enabled"
-                translations["vlac.system.mod.enabled"] = "Mod successfully enabled"
-                translations["vlac.system.mod.disabled"] = "Mod disabled"
+                entries["vlac.system.reload.start"] = "Reloading VLAC..."
+                entries["vlac.system.reload.done"] = "Reload completed"
+                entries["vlac.system.reload.failed"] = "Reload failed: %s"
+                entries["vlac.system.language.reloaded"] = "Language files reloaded"
+                entries["vlac.system.language.reload_failed"] = "Failed to reload language files: %s"
+                entries["vlac.system.config.loading"] = "Loading configuration..."
+                entries["vlac.system.config.loaded"] = "Configuration loaded"
+                entries["vlac.system.commands.registered"] = "Commands registered"
+                entries["vlac.startup.luckperms"] = "Initializing LuckPerms integration..."
+                entries["vlac.system.luckperms.connected"] = "Successfully connected to LuckPerms API"
+                entries["vlac.system.luckperms.connection_failed"] = "Failed to connect to LuckPerms API"
+                entries["vlac.system.luckperms.init_failed"] = "Failed to initialize LuckPerms: %s"
+                entries["vlac.system.debug.enabled"] = "Debug mode is enabled"
+                entries["vlac.system.mod.enabled"] = "Mod successfully enabled"
+            }
+            "zh_CN" -> {
+                // Debug command
+                entries["vlac.command.debug.help"] = "VLAC 调试命令"
+                entries["vlac.command.debug.enable"] = "启用调试模式"
+                entries["vlac.command.debug.disable"] = "禁用调试模式"
+                entries["vlac.command.debug.enabled"] = "调试模式已启用"
+                entries["vlac.command.debug.disabled"] = "调试模式已禁用"
+                entries["vlac.command.debug.add"] = "添加玩家到豁免列表"
+                entries["vlac.command.debug.remove"] = "从豁免列表中移除玩家"
+                entries["vlac.command.debug.list"] = "列出所有豁免玩家"
+                entries["vlac.command.debug.added"] = "已将 %s 添加到豁免列表"
+                entries["vlac.command.debug.removed"] = "已将 %s 从豁免列表中移除"
+                entries["vlac.command.debug.exempt_list"] = "豁免玩家: %s"
+                entries["vlac.command.debug.enable_success"] = "调试模式已成功启用"
+                entries["vlac.command.debug.disable_success"] = "调试模式已成功禁用"
+                entries["vlac.command.debug.enable_log"] = "调试模式被启用，操作者："
+                entries["vlac.command.debug.disable_log"] = "调试模式被禁用，操作者："
                 
-                // Permission messages
-                translations["vlac.permission.registering"] = "Registering VLAC permission nodes..."
-                translations["vlac.permission.registered"] = "Permission node registered: %s - %s"
-                translations["vlac.permission.init_failed"] = "Failed to initialize LuckPerms integration: %s"
-                translations["vlac.permission.node_info"] = "Permission node: %s - %s"
-                translations["vlac.permission.node_registered"] = "Permission node registered: %s"
-                translations["vlac.permission.node_register_failed"] = "Failed to register permission node: %s"
-                translations["vlac.permission.register_failed"] = "Failed to register VLAC permission nodes: %s"
-                translations["vlac.permission.check_failed"] = "Failed to check permission: %s"
-                translations["vlac.permission.get_player_groups_failed"] = "Failed to get player groups: %s"
-                translations["vlac.permission.group_check_failed"] = "Failed to check player group: %s"
-                translations["vlac.permission.add_to_group_failed"] = "Failed to add player to group: %s"
-                translations["vlac.permission.remove_from_group_failed"] = "Failed to remove player from group: %s"
-                translations["vlac.permission.error"] = "Failed to register permission: %s"
-                translations["vlac.permission.check.failed"] = "Failed to check permission: %s"
+                // Language command
+                entries["vlac.command.help.title"] = "VLAC 命令:"
+                entries["vlac.command.help.reload"] = "重新加载配置"
+                entries["vlac.command.help.toggle"] = "切换 VLAC 开关"
+                entries["vlac.command.help.debug"] = "管理调试模式"
+                entries["vlac.command.help.language"] = "更改语言"
+                entries["vlac.command.help.status"] = "显示 VLAC 状态"
+                entries["vlac.command.help.exempt"] = "添加/移除玩家豁免"
+                entries["vlac.command.help.help"] = "显示此帮助信息"
                 
-                // Log messages
-                translations["vlac.log.initialized"] = "Log system initialized successfully"
-                translations["vlac.log.init_failed"] = "Failed to initialize log system: %s"
-                translations["vlac.log.write_failed"] = "Failed to write log: %s"
-                translations["vlac.log.broadcast_failed"] = "Failed to broadcast message: %s"
-                translations["vlac.log.closed"] = "Log system closed successfully"
-                translations["vlac.log.close_failed"] = "Failed to close log system: %s"
-                translations["vlac.log.violation"] = "Violation logged: Player %s failed %s check with VL %s"
-                translations["vlac.config.loaded"] = "Configuration loaded from %s"
-                translations["vlac.config.created"] = "Created default configuration at %s"
-                translations["vlac.config.error"] = "Error loading configuration: %s"
-                translations["vlac.language.loaded"] = "Loaded language: %s"
-                translations["vlac.language.created"] = "Created default language file: %s"
-                translations["vlac.startup.config"] = "Loading configuration..."
-                translations["vlac.startup.enabled"] = "Mod successfully enabled (took %s ms)"
-                translations["vlac.startup.commands"] = "Registering commands..."
-                translations["vlac.startup.luckperms"] = "Initializing LuckPerms integration..."
-                translations["vlac.startup.debug"] = "Debug mode is %s"
-                translations["vlac.check.failed"] = "Player %s failed %s check. VL: %s"
-                translations["vlac.check.passed"] = "Player %s passed %s check"
-                translations["vlac.punish.kick"] = "Player %s was kicked for failing %s check"
-                translations["vlac.punish.ban"] = "Player %s was banned for failing %s check"
+                entries["vlac.command.language.help"] = "更改语言"
+                entries["vlac.command.language.change"] = "更改语言为 %s"
+                entries["vlac.command.language.list"] = "列出所有可用语言"
+                entries["vlac.command.language.current"] = "当前语言: %s"
+                entries["vlac.command.language.available"] = "可用语言: %s"
+                entries["vlac.command.language.changed"] = "语言已更改为 %s"
+                entries["vlac.command.language.not_found"] = "未找到语言 %s"
+                entries["vlac.command.language.success"] = "语言已更改为"
+                entries["vlac.command.language.failed"] = "更改语言失败"
+                entries["vlac.command.language.unsupported"] = "不支持的语言"
+                entries["vlac.command.language.log"] = "语言被更改，操作者："
+                entries["vlac.command.language.error"] = "更改语言时出错："
                 
-                // Save translations to file
-                FileWriter(file).use { writer ->
-                    gson.toJson(translations, writer)
-                }
+                // Toggle command
+                entries["vlac.command.toggle.enable_success"] = "VLAC 已成功启用"
+                entries["vlac.command.toggle.disable_success"] = "VLAC 已成功禁用"
+                entries["vlac.command.toggle.enable_log"] = "VLAC 被启用，操作者："
+                entries["vlac.command.toggle.disable_log"] = "VLAC 被禁用，操作者："
                 
-                logger.info("Created default JSON language file: $lang")
-            } catch (e: Exception) {
-                logger.error("Failed to create default JSON language file $lang: ${e.message}")
+                // Reload command
+                entries["vlac.command.reload.success"] = "配置重新加载成功"
+                entries["vlac.command.reload.failed"] = "重新加载配置失败: %s"
+                
+                // Exempt command
+                entries["vlac.command.exempt.player_not_found"] = "未找到玩家: %s"
+                entries["vlac.command.exempt.added"] = "已将玩家添加到豁免列表: %s"
+                entries["vlac.command.exempt.removed"] = "已将玩家从豁免列表中移除: %s"
+                entries["vlac.command.exempt.invalid_state"] = "无效状态，请使用 'add' 或 'remove'"
+                entries["vlac.command.exempt.failed"] = "更新豁免列表失败: %s"
+                
+                // Status display
+                entries["vlac.status.enabled"] = "已启用"
+                entries["vlac.status.disabled"] = "已禁用"
+                entries["vlac.status.title"] = "VLAC 状态"
+                entries["vlac.status.mod"] = "模组状态"
+                entries["vlac.status.debug"] = "调试模式"
+                entries["vlac.status.language"] = "语言"
+                entries["vlac.status.luckperms"] = "LuckPerms 支持"
+                entries["vlac.status.memory"] = "内存使用"
+                
+                // System messages
+                entries["vlac.system.reload.start"] = "正在重新加载 VLAC..."
+                entries["vlac.system.reload.done"] = "重新加载完成"
+                entries["vlac.system.reload.failed"] = "重新加载失败: %s"
+                entries["vlac.system.language.reloaded"] = "语言文件已重新加载"
+                entries["vlac.system.language.reload_failed"] = "重新加载语言文件失败: %s"
+                entries["vlac.system.config.loading"] = "正在加载配置..."
+                entries["vlac.system.config.loaded"] = "配置已加载"
+                entries["vlac.system.commands.registered"] = "命令已注册"
+                entries["vlac.startup.luckperms"] = "正在初始化 LuckPerms 集成..."
+                entries["vlac.system.luckperms.connected"] = "成功连接到 LuckPerms API"
+                entries["vlac.system.luckperms.connection_failed"] = "连接到 LuckPerms API 失败"
+                entries["vlac.system.luckperms.init_failed"] = "初始化 LuckPerms 失败: %s"
+                entries["vlac.system.debug.enabled"] = "调试模式已启用"
+                entries["vlac.system.mod.enabled"] = "模组已成功启用"
             }
         }
+        
+        return entries
     }
-    
+
     /**
-     * Load custom language files from config directory
+     * Loads custom language files from the language directory
      */
-    private fun loadCustomLanguages(dir: File) {
+    private fun loadCustomLanguages() {
         try {
-            val files = dir.listFiles { file -> file.isFile && file.extension == "json" }
-            if (files != null) {
-                for (file in files) {
-                    val langCode = file.nameWithoutExtension.lowercase()
-                    try {
-                        val type = object : TypeToken<Map<String, String>>() {}.type
-                        val translations = gson.fromJson<Map<String, String>>(FileReader(file), type)
-                        
-                        // Store translations
-                        extraTranslations[langCode] = translations.toMutableMap()
-                        logger.info("Loaded custom language file: $langCode")
-                    } catch (e: Exception) {
-                        logger.error("Failed to load custom language file $langCode: ${e.message}")
+            Files.list(languageDir).forEach { file ->
+                val fileName = file.fileName.toString()
+                if (fileName.endsWith(".json")) {
+                    val langCode = fileName.substringBeforeLast(".")
+                    if (!translations.containsKey(langCode)) {
+                        loadLanguage(langCode)
                     }
                 }
             }
         } catch (e: Exception) {
-            logger.error("Failed to load custom language files: ${e.message}")
+            logger.error("Failed to load custom languages: ${e.message}")
         }
     }
-    
+
     /**
-     * Set current language
+     * Loads a language file
      */
-    fun setLanguage(lang: String) {
-        // Always use English
-        currentLanguage = "en_us"
-        logger.info("Language set to: $currentLanguage")
+    private fun loadLanguage(lang: String) {
+        val file = languageDir.resolve("$lang.json")
+        if (Files.exists(file)) {
+            try {
+                FileReader(file.toFile(), StandardCharsets.UTF_8).use { reader ->
+                    val type = object : TypeToken<Map<String, String>>() {}.type
+                    val entries: Map<String, String> = gson.fromJson(reader, type)
+                    translations[lang] = entries
+                }
+                logger.info("Loaded language: $lang")
+            } catch (e: Exception) {
+                logger.error("Failed to load language $lang: ${e.message}")
+            }
+        } else {
+            logger.warn("Language file not found: $lang.json")
+        }
     }
-    
+
     /**
-     * Get current language
+     * Sets the current language
      */
-    fun getCurrentLanguage(): String {
+    fun setLanguage(lang: String): Boolean {
+        if (translations.containsKey(lang)) {
+            currentLanguage = lang
+            logger.info("Language changed to: $lang")
+            return true
+        }
+        logger.warn("Language not found: $lang")
+        return false
+    }
+
+    /**
+     * Gets the current language
+     */
+    fun getLanguage(): String {
         return currentLanguage
     }
-    
+
     /**
-     * Get localized string
-     * First tries to get from custom translations, then falls back to Minecraft translation system
+     * Gets a localized string
      */
-    fun getString(key: String, vararg args: Any?): String {
-        try {
-            // Add prefix if needed
-            val fullKey = if (!key.startsWith("vlac.")) "vlac.$key" else key
-            
-            // Try to get from custom translations first
-            val customTranslation = extraTranslations[currentLanguage]?.get(fullKey)
-                ?: extraTranslations["en_us"]?.get(fullKey)
-            
-            if (customTranslation != null) {
-                return if (args.isEmpty()) {
-                    customTranslation
-                } else {
-                    try {
-                        String.format(customTranslation, *args)
-                    } catch (e: Exception) {
-                        logger.error("Error formatting message '$fullKey': ${e.message}")
-                        customTranslation
-                    }
-                }
-            }
-            
-            // Fall back to Minecraft translation system
-            val text = if (args.isEmpty()) {
-                Text.translatable(fullKey)
-            } else {
-                Text.translatable(fullKey, *args)
-            }
-            
-            return text.string
-        } catch (e: Exception) {
-            logger.error("Error getting message for key '$key': ${e.message}")
-            return key
-        }
+    fun getString(key: String, vararg args: Any): String {
+        val translation = translations[currentLanguage] ?: return key
+        val value = translation[key] ?: return key
+        return if (args.isEmpty()) value else String.format(value, *args)
     }
-    
+
     /**
-     * Reload all languages
+     * Reloads all languages
+     * 
+     * @param langDir 语言文件目录
      */
     fun reloadLanguages(langDir: Path) {
-        extraTranslations.clear()
-        init(langDir)
+        this.languageDir = langDir
+        translations.clear()
+        registerLanguageFiles()
+        logger.info("Reloaded all languages")
     }
-} 
+}

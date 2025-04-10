@@ -98,10 +98,10 @@ object VLACCommand {
             com.mengyangx.vlac.VesperaLumenAntiCheat.reloadLanguage()
             
             // Send feedback
-            source.sendFeedback({ Text.literal(LanguageManager.getString("command.reload.success")).formatted(Formatting.GREEN) }, true)
+            source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.reload.success")).formatted(Formatting.GREEN) }, true)
             return 1
         } catch (e: Exception) {
-            source.sendFeedback({ Text.literal(LanguageManager.getString("command.reload.failed", e.message ?: "Unknown error")).formatted(Formatting.RED) }, true)
+            source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.reload.failed", e.message ?: "Unknown error")).formatted(Formatting.RED) }, true)
             return 0
         }
     }
@@ -136,11 +136,11 @@ object VLACCommand {
         VLACConfig.setEnabled(enabled)
         
         if (enabled) {
-            source.sendMessage(Text.literal("§a${LanguageManager.getString("command.toggle.enable_success")}"))
-            LogManager.info("${LanguageManager.getString("command.toggle.enable_log")} ${source.name}")
+            source.sendMessage(Text.literal("§a${LanguageManager.getString("vlac.command.toggle.enable_success")}"))
+            LogManager.info("${LanguageManager.getString("vlac.command.toggle.enable_log")} ${source.name}")
         } else {
-            source.sendMessage(Text.literal("§c${LanguageManager.getString("command.toggle.disable_success")}"))
-            LogManager.info("${LanguageManager.getString("command.toggle.disable_log")} ${source.name}")
+            source.sendMessage(Text.literal("§c${LanguageManager.getString("vlac.command.toggle.disable_success")}"))
+            LogManager.info("${LanguageManager.getString("vlac.command.toggle.disable_log")} ${source.name}")
         }
         
         return 1
@@ -154,11 +154,11 @@ object VLACCommand {
         VLACConfig.setDebug(enabled)
         
         if (enabled) {
-            source.sendMessage(Text.literal("§a${LanguageManager.getString("command.debug.enable_success")}"))
-            LogManager.info("${LanguageManager.getString("command.debug.enable_log")} ${source.name}")
+            source.sendMessage(Text.literal("§a${LanguageManager.getString("vlac.command.debug.enable_success")}"))
+            LogManager.info("${LanguageManager.getString("vlac.command.debug.enable_log")} ${source.name}")
         } else {
-            source.sendMessage(Text.literal("§c${LanguageManager.getString("command.debug.disable_success")}"))
-            LogManager.info("${LanguageManager.getString("command.debug.disable_log")} ${source.name}")
+            source.sendMessage(Text.literal("§c${LanguageManager.getString("vlac.command.debug.disable_success")}"))
+            LogManager.info("${LanguageManager.getString("vlac.command.debug.disable_log")} ${source.name}")
         }
         
         return 1
@@ -171,7 +171,7 @@ object VLACCommand {
         val source = context.source
         
         if (lang != "zh_CN" && lang != "en_US") {
-            source.sendMessage(Text.literal("§c${LanguageManager.getString("command.language.unsupported")}: $lang, ${LanguageManager.getString("command.language.available")}: zh_CN, en_US"))
+            source.sendMessage(Text.literal("§c${LanguageManager.getString("vlac.command.language.unsupported")}: $lang, ${LanguageManager.getString("vlac.command.language.available")}: zh_CN, en_US"))
             return 0
         }
         
@@ -186,11 +186,11 @@ object VLACCommand {
             // Force reload language files
             com.mengyangx.vlac.VesperaLumenAntiCheat.reloadLanguage()
             
-            source.sendMessage(Text.literal("§a${LanguageManager.getString("command.language.success")}: $lang"))
-            LogManager.info("${LanguageManager.getString("command.language.log")} ${source.name} $lang")
+            source.sendMessage(Text.literal("§a${LanguageManager.getString("vlac.command.language.success")}: $lang"))
+            LogManager.info("${LanguageManager.getString("vlac.command.language.log")} ${source.name} $lang")
         } catch (e: Exception) {
-            source.sendMessage(Text.literal("§c${LanguageManager.getString("command.language.failed")}: ${e.message ?: "Unknown error"}"))
-            LogManager.error("${LanguageManager.getString("command.language.error")}: ${e.message ?: "Unknown error"}")
+            source.sendMessage(Text.literal("§c${LanguageManager.getString("vlac.command.language.failed")}: ${e.message ?: "Unknown error"}"))
+            LogManager.error("${LanguageManager.getString("vlac.command.language.error")}: ${e.message ?: "Unknown error"}")
         }
         
         return 1
@@ -202,7 +202,7 @@ object VLACCommand {
     fun showCurrentLanguage(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         val currentLang = VLACConfig.getLanguage()
-        source.sendMessage(Text.literal("§e${LanguageManager.getString("command.language.current")}: $currentLang"))
+        source.sendMessage(Text.literal("§e${LanguageManager.getString("vlac.command.language.current")}: $currentLang"))
         return 1
     }
     
@@ -211,22 +211,22 @@ object VLACCommand {
      */
     fun showStatus(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
-        val statusEnabled = if (VLACConfig.isEnabled()) "§a${LanguageManager.getString("status.enabled")}" else "§c${LanguageManager.getString("status.disabled")}"
-        val statusDebug = if (VLACConfig.isDebugEnabled()) "§a${LanguageManager.getString("status.enabled")}" else "§c${LanguageManager.getString("status.disabled")}"
-        val statusLuckPerms = if (VLACConfig.isLuckPermsEnabled()) "§a${LanguageManager.getString("status.enabled")}" else "§c${LanguageManager.getString("status.disabled")}"
+        val statusEnabled = if (VLACConfig.isEnabled()) "§a${LanguageManager.getString("vlac.status.enabled")}" else "§c${LanguageManager.getString("vlac.status.disabled")}"
+        val statusDebug = if (VLACConfig.isDebugEnabled()) "§a${LanguageManager.getString("vlac.status.enabled")}" else "§c${LanguageManager.getString("vlac.status.disabled")}"
+        val statusLuckPerms = if (VLACConfig.isLuckPermsEnabled()) "§a${LanguageManager.getString("vlac.status.enabled")}" else "§c${LanguageManager.getString("vlac.status.disabled")}"
         
-        source.sendFeedback({ Text.literal("§6----- ${LanguageManager.getString("status.title")} -----") }, false)
-        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("status.mod")}: $statusEnabled") }, false)
-        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("status.debug")}: $statusDebug") }, false)
-        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("status.language")}: §a${VLACConfig.getLanguage()}") }, false)
-        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("status.luckperms")}: $statusLuckPerms") }, false)
+        source.sendFeedback({ Text.literal("§6----- ${LanguageManager.getString("vlac.status.title")} -----") }, false)
+        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("vlac.status.mod")}: $statusEnabled") }, false)
+        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("vlac.status.debug")}: $statusDebug") }, false)
+        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("vlac.status.language")}: §a${VLACConfig.getLanguage()}") }, false)
+        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("vlac.status.luckperms")}: $statusLuckPerms") }, false)
         
         // Add server runtime information
         val runtime = Runtime.getRuntime()
         val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
         val totalMemory = runtime.totalMemory() / 1024 / 1024
         
-        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("status.memory")}: §a$usedMemory MB §7/ §a$totalMemory MB") }, false)
+        source.sendFeedback({ Text.literal("§e${LanguageManager.getString("vlac.status.memory")}: §a$usedMemory MB §7/ §a$totalMemory MB") }, false)
         
         return 1
     }
@@ -237,14 +237,14 @@ object VLACCommand {
     private fun helpCommand(context: CommandContext<ServerCommandSource>): Int {
         val source = context.source
         
-        source.sendFeedback({ Text.literal(LanguageManager.getString("command.help.title")).formatted(Formatting.GOLD) }, false)
-        source.sendFeedback({ Text.literal("/vlac reload - ${LanguageManager.getString("command.help.reload")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac toggle [true|false] - ${LanguageManager.getString("command.help.toggle")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac debug [true|false] - ${LanguageManager.getString("command.help.debug")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac language <zh_CN|en_US> - ${LanguageManager.getString("command.help.language")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac exempt <player> <add|remove> - ${LanguageManager.getString("command.help.exempt")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac status - ${LanguageManager.getString("command.help.status")}").formatted(Formatting.YELLOW) }, false)
-        source.sendFeedback({ Text.literal("/vlac help - ${LanguageManager.getString("command.help.help")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.help.title")).formatted(Formatting.GOLD) }, false)
+        source.sendFeedback({ Text.literal("/vlac reload - ${LanguageManager.getString("vlac.command.help.reload")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac toggle [true|false] - ${LanguageManager.getString("vlac.command.help.toggle")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac debug [true|false] - ${LanguageManager.getString("vlac.command.help.debug")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac language <zh_CN|en_US> - ${LanguageManager.getString("vlac.command.help.language")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac exempt <player> <add|remove> - ${LanguageManager.getString("vlac.command.help.exempt")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac status - ${LanguageManager.getString("vlac.command.help.status")}").formatted(Formatting.YELLOW) }, false)
+        source.sendFeedback({ Text.literal("/vlac help - ${LanguageManager.getString("vlac.command.help.help")}").formatted(Formatting.YELLOW) }, false)
         
         return 1
     }
@@ -261,26 +261,26 @@ object VLACCommand {
         try {
             val target = source.server.playerManager.getPlayer(targetName)
             if (target == null) {
-                source.sendFeedback({ Text.literal(LanguageManager.getString("command.exempt.player_not_found", targetName)).formatted(Formatting.RED) }, true)
+                source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.exempt.player_not_found", targetName)).formatted(Formatting.RED) }, true)
                 return 0
             }
             
             when (state.lowercase()) {
                 "add" -> {
                     // TODO: Add exemption
-                    source.sendFeedback({ Text.literal(LanguageManager.getString("command.exempt.added", targetName)).formatted(Formatting.GREEN) }, true)
+                    source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.exempt.added", targetName)).formatted(Formatting.GREEN) }, true)
                 }
                 "remove" -> {
                     // TODO: Remove exemption
-                    source.sendFeedback({ Text.literal(LanguageManager.getString("command.exempt.removed", targetName)).formatted(Formatting.GREEN) }, true)
+                    source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.exempt.removed", targetName)).formatted(Formatting.GREEN) }, true)
                 }
                 else -> {
-                    source.sendFeedback({ Text.literal(LanguageManager.getString("command.exempt.invalid_state")).formatted(Formatting.RED) }, true)
+                    source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.exempt.invalid_state")).formatted(Formatting.RED) }, true)
                 }
             }
             return 1
         } catch (e: Exception) {
-            source.sendFeedback({ Text.literal(LanguageManager.getString("command.exempt.failed", e.message ?: "Unknown error")).formatted(Formatting.RED) }, true)
+            source.sendFeedback({ Text.literal(LanguageManager.getString("vlac.command.exempt.failed", e.message ?: "Unknown error")).formatted(Formatting.RED) }, true)
             return 0
         }
     }

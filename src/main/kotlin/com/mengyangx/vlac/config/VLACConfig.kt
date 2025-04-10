@@ -194,7 +194,7 @@ object VLACConfig {
      * Set mod language
      */
     fun setLanguage(value: String) {
-        language = value
+        language = value.lowercase()
         saveConfig()
     }
     

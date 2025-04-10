@@ -42,9 +42,9 @@ object LogManager {
             logFile = File(logDir, "vlac-$currentDate.log")
             logWriter = FileWriter(logFile, true)
             
-            info(LanguageManager.getString("log.initialized"))
+            info("Log system initialized")
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("log.init_failed", e.message))
+            logger.error("Failed to initialize log system: ${e.message ?: "Unknown error"}")
         }
     }
     
@@ -58,7 +58,7 @@ object LogManager {
             logWriter?.write(logMessage)
             logWriter?.flush()
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("log.write_failed", e.message))
+            logger.error("Failed to write log: ${e.message ?: "Unknown error"}")
         }
     }
     
@@ -102,10 +102,10 @@ object LogManager {
             val currentServer = server
             if (currentServer != null) {
                 val text = Text.literal(message)
-                currentServer.getPlayerManager().broadcast(text, false)
+                currentServer.playerManager.broadcast(text, false)
             }
         } catch (e: Exception) {
-            error(LanguageManager.getString("log.broadcast_failed", e.message))
+            error("Failed to broadcast message: ${e.message ?: "Unknown error"}")
         }
     }
     
@@ -116,9 +116,9 @@ object LogManager {
         try {
             logWriter?.close()
             logWriter = null
-            info(LanguageManager.getString("log.closed"))
+            info("Log system closed")
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("log.close_failed", e.message))
+            logger.error("Failed to close log system: ${e.message ?: "Unknown error"}")
         }
     }
 } 

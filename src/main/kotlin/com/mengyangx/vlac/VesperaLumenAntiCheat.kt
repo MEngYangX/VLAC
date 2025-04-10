@@ -35,6 +35,9 @@ class VesperaLumenAntiCheat : ModInitializer {
         // Configuration directory
         lateinit var configDir: Path
         
+        // VLACConfig实例
+        lateinit var config: VLACConfig
+        
         /**
          * Reload language files
          */
@@ -42,9 +45,9 @@ class VesperaLumenAntiCheat : ModInitializer {
             try {
                 val langDir = configDir.resolve("lang")
                 LanguageManager.reloadLanguages(langDir)
-                logger.info(LanguageManager.getString("system.language.reloaded"))
+                logger.info("Language files reloaded")
             } catch (e: Exception) {
-                logger.error(LanguageManager.getString("system.language.reload_failed", e.message))
+                logger.error("Failed to reload language files: ${e.message ?: "Unknown error"}")
             }
         }
         
@@ -67,6 +70,9 @@ class VesperaLumenAntiCheat : ModInitializer {
         // Setup config directory first, so we can load languages
         configDir = FabricLoader.getInstance().configDir.resolve("vlac")
         
+        // Initialize VLACConfig
+        config = VLACConfig
+        
         // Load language files before anything else
         val langDir = configDir.resolve("lang")
         LanguageManager.init(langDir)
@@ -84,38 +90,59 @@ class VesperaLumenAntiCheat : ModInitializer {
         logger.info("")
         
         // Load configuration
-        logger.info(LanguageManager.getString("system.config.loading"))
+        logger.info(LanguageManager.getString("vlac.system.config.loading"))
         VLACConfig.init(configDir)
-        logger.info(LanguageManager.getString("system.config.loaded"))
+        logger.info(LanguageManager.getString("vlac.system.config.loaded"))
         
         // Register commands
         CommandRegistrationCallback.EVENT.register { dispatcher, registryAccess, environment ->
             VLACCommand.register(dispatcher)
-            logger.info(LanguageManager.getString("system.commands.registered"))
+            logger.info(LanguageManager.getString("vlac.system.commands.registered"))
         }
         
-        // Initialize LuckPerms
-        ServerLifecycleEvents.SERVER_STARTING.register { server ->
-            try {
-                luckPerms = LuckPermsProvider.get()
-                isLuckPermsAvailable = PermissionUtils.init(luckPerms!!)
-                if (isLuckPermsAvailable) {
-                    logger.info(LanguageManager.getString("system.luckperms.connected"))
-                } else {
-                    logger.warn(LanguageManager.getString("system.luckperms.connection_failed"))
+        // 将LuckPerms初始化从SERVER_STARTING移动到SERVER_STARTED事件
+        // 这确保了LuckPerms已经完全加载并可用
+        ServerLifecycleEvents.SERVER_STARTED.register { server ->
+            // 延迟1秒钟再初始化，确保LuckPerms完全加载
+            server.submitAndJoin {
+                try {
+                    Thread.sleep(1000) // 等待1秒，确保LuckPerms完全加载
+                    logger.info(LanguageManager.getString("vlac.startup.luckperms"))
+                    
+                    // 检查LuckPerms是否已加载
+                    val fabricLoader = FabricLoader.getInstance()
+                    if (fabricLoader.isModLoaded("luckperms")) {
+                        try {
+                            luckPerms = LuckPermsProvider.get()
+                            isLuckPermsAvailable = PermissionUtils.init(luckPerms!!)
+                            if (isLuckPermsAvailable) {
+                                logger.info(LanguageManager.getString("vlac.system.luckperms.connected"))
+                            } else {
+                                logger.warn(LanguageManager.getString("vlac.system.luckperms.connection_failed"))
+                            }
+                        } catch (e: Exception) {
+                            logger.error("LuckPerms API access failed: ${e.message ?: "Unknown error"}")
+                            logger.error("Stack trace: ${e.stackTraceToString()}")
+                            isLuckPermsAvailable = false
+                        }
+                    } else {
+                        logger.warn("LuckPerms mod is not loaded. Permission features will be disabled.")
+                        isLuckPermsAvailable = false
+                    }
+                } catch (e: Exception) {
+                    logger.error(LanguageManager.getString("vlac.system.luckperms.init_failed", e.message ?: "Unknown error"))
+                    logger.error("Stack trace: ${e.stackTraceToString()}")
+                    isLuckPermsAvailable = false
                 }
-            } catch (e: Exception) {
-                logger.error(LanguageManager.getString("system.luckperms.init_failed", e.message))
-                isLuckPermsAvailable = false
             }
         }
         
         // Enable debug mode if configured
         if (VLACConfig.isDebugEnabled()) {
-            logger.info(LanguageManager.getString("system.debug.enabled"))
+            logger.info(LanguageManager.getString("vlac.system.debug.enabled"))
         }
         
         // Calculate startup time (if needed in the future)
-        logger.info(LanguageManager.getString("system.mod.enabled"))
+        logger.info(LanguageManager.getString("vlac.system.mod.enabled"))
     }
 }

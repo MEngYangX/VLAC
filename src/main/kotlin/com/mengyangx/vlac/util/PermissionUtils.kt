@@ -33,10 +33,10 @@ object PermissionUtils {
     fun init(luckPerms: net.luckperms.api.LuckPerms): Boolean {
         try {
             this.luckPerms = luckPerms
-            logger.info(LanguageManager.getString("system.luckperms.connected"))
+            logger.info("Successfully connected to LuckPerms API")
             
             // Register VLAC permission nodes
-            logger.info(LanguageManager.getString("permission.registering"))
+            logger.info("Registering VLAC permission nodes...")
             
             // Create and register permission nodes
             val vlacAdmin = luckPerms.nodeBuilderRegistry.forPermission()
@@ -62,10 +62,10 @@ object PermissionUtils {
                 luckPerms.groupManager.saveGroup(defaultGroup)
             }
             
-            logger.info(LanguageManager.getString("permission.registered"))
+            logger.info("VLAC permission nodes registered")
             return true
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.init_failed", e.message))
+            logger.error("Failed to initialize LuckPerms: ${e.message ?: "Unknown error"}")
             return false
         }
     }
@@ -98,7 +98,7 @@ object PermissionUtils {
         val luckPerms = luckPerms ?: return
         
         try {
-            LogManager.info(LanguageManager.getString("permission.registering"))
+            LogManager.info("Registering VLAC permission nodes...")
             
             // 获取所有VLAC权限
             val allPermissions = VLACPermission.getAllPermissions()
@@ -106,7 +106,7 @@ object PermissionUtils {
             // 记录所有权限节点
             for (permission in allPermissions) {
                 val description = VLACPermission.getPermissionDescription(permission)
-                LogManager.debug(LanguageManager.getString("permission.node_info", permission, description))
+                LogManager.debug("Permission node: $permission - $description")
                 
                 try {
                     val node = luckPerms.nodeBuilderRegistry.forPermission()
@@ -115,15 +115,15 @@ object PermissionUtils {
                         .build()
                     
                     luckPerms.groupManager.getGroup("default")?.data()?.add(node)
-                    LogManager.debug(LanguageManager.getString("permission.node_registered", permission))
+                    LogManager.debug("Permission node registered: $permission")
                 } catch (e: Exception) {
-                    LogManager.debug(LanguageManager.getString("permission.node_register_failed", e.message))
+                    LogManager.debug("Failed to register permission node: ${e.message ?: "Unknown error"}")
                 }
             }
             
-            LogManager.info(LanguageManager.getString("permission.registered"))
+            LogManager.info("VLAC permission nodes registered")
         } catch (e: Exception) {
-            LogManager.error(LanguageManager.getString("permission.register_failed", e.message))
+            LogManager.error("Failed to register VLAC permission nodes: ${e.message ?: "Unknown error"}")
         }
     }
     
@@ -138,13 +138,14 @@ object PermissionUtils {
         if (player !is ServerPlayerEntity) return false
         
         return try {
-            val user = luckPerms?.userManager?.getUser(player.uuid) ?: return false
-            val node = luckPerms?.nodeBuilderRegistry?.forPermission()
-                ?.permission(permission)
-                ?.build() ?: return false
-            user.data().contains(node, net.luckperms.api.node.NodeEqualityPredicate.EXACT).asBoolean()
+            val lp = luckPerms ?: return false
+            val user = lp.userManager.getUser(player.uuid) ?: return false
+            
+            // 使用查询API检查权限
+            val options = QueryOptions.defaultContextualOptions()
+            user.getCachedData().getPermissionData(options).checkPermission(permission).asBoolean()
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.check_failed", e.message))
+            logger.error("Failed to check permission: ${e.message ?: "Unknown error"}")
             false
         }
     }
@@ -212,7 +213,7 @@ object PermissionUtils {
                 .map { it.key.substring(6) } // Remove "group." prefix
                 .toList()
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.get_player_groups_failed", e.message))
+            logger.error("Failed to get player groups: ${e.message ?: "Unknown error"}")
             emptyList()
         }
     }
@@ -238,13 +239,14 @@ object PermissionUtils {
         if (player !is ServerPlayerEntity) return false
         
         return try {
-            val user = luckPerms?.userManager?.getUser(player.uuid) ?: return false
-            val node = luckPerms?.nodeBuilderRegistry?.forInheritance()
-                ?.group(group)
-                ?.build() ?: return false
-            user.data().contains(node, net.luckperms.api.node.NodeEqualityPredicate.EXACT).asBoolean()
+            val lp = luckPerms ?: return false
+            val user = lp.userManager.getUser(player.uuid) ?: return false
+            
+            // 检查用户的继承节点
+            val options = QueryOptions.defaultContextualOptions()
+            user.getInheritedGroups(options).any { it.name.equals(group, ignoreCase = true) }
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.group_check_failed", e.message))
+            logger.error("Failed to check group membership: ${e.message ?: "Unknown error"}")
             false
         }
     }
@@ -273,7 +275,7 @@ object PermissionUtils {
                 false
             }
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.add_to_group_failed", e.message))
+            logger.error("Failed to add player to group: ${e.message ?: "Unknown error"}")
             false
         }
     }
@@ -302,7 +304,7 @@ object PermissionUtils {
                 false
             }
         } catch (e: Exception) {
-            logger.error(LanguageManager.getString("permission.remove_from_group_failed", e.message))
+            logger.error("Failed to remove player from group: ${e.message ?: "Unknown error"}")
             false
         }
     }
