@@ -25,10 +25,16 @@ object LanguageManager {
     private var currentLanguage = "en_US"
     private val translations = mutableMapOf<String, Map<String, String>>()
     private val defaultLanguages = arrayOf("en_US", "zh_CN")
-
+    
+    // 语言模式：AUTO自动，MANUAL手动
+    enum class LanguageMode { AUTO, MANUAL }
+    
+    // 存储每个玩家的语言设置和模式
+    private val playerSettings = mutableMapOf<UUID, Pair<String, LanguageMode>>()
+    
     /**
      * 初始化语言管理器
-     * 
+     *
      * @param langDir 语言文件目录
      */
     fun init(langDir: Path) {
@@ -116,7 +122,7 @@ object LanguageManager {
             loadLanguage(lang)
         }
     }
-
+    
     /**
      * Creates default translations for a given language
      */
@@ -164,6 +170,11 @@ object LanguageManager {
                 entries["vlac.command.language.unsupported"] = "Unsupported language"
                 entries["vlac.command.language.log"] = "Language changed by"
                 entries["vlac.command.language.error"] = "Error changing language"
+                // 新增的语言项
+                entries["vlac.command.language.auto_mode"] = "Auto language mode, detected as"
+                entries["vlac.command.language.mode_auto"] = "Auto"
+                entries["vlac.command.language.mode_manual"] = "Manual"
+                entries["vlac.command.language.player_only"] = "This command can only be used by players"
                 
                 // Toggle command
                 entries["vlac.command.toggle.enable_success"] = "VLAC enabled successfully"
@@ -248,6 +259,11 @@ object LanguageManager {
                 entries["vlac.command.language.unsupported"] = "不支持的语言"
                 entries["vlac.command.language.log"] = "语言被更改，操作者："
                 entries["vlac.command.language.error"] = "更改语言时出错："
+                // 新增的语言项
+                entries["vlac.command.language.auto_mode"] = "自动语言模式，检测为"
+                entries["vlac.command.language.mode_auto"] = "自动"
+                entries["vlac.command.language.mode_manual"] = "手动"
+                entries["vlac.command.language.player_only"] = "此命令只能由玩家使用"
                 
                 // Toggle command
                 entries["vlac.command.toggle.enable_success"] = "VLAC 已成功启用"
@@ -336,7 +352,7 @@ object LanguageManager {
             logger.warn("Language file not found: $lang.json")
         }
     }
-
+    
     /**
      * Sets the current language
      */
@@ -377,4 +393,84 @@ object LanguageManager {
         registerLanguageFiles()
         logger.info("Reloaded all languages")
     }
-}
+
+    /**
+     * 根据客户端语言代码确定应使用的语言
+     * 简体中文、繁体中文、文言文 -> 使用简体中文
+     * 其他所有语言 -> 使用英文
+     */
+    fun determineLanguageFromClientCode(clientLanguageCode: String): String {
+        return when {
+            clientLanguageCode.startsWith("zh") || clientLanguageCode == "lzh" -> "zh_CN"
+            else -> "en_US" // 默认使用英语
+        }
+    }
+    
+    /**
+     * 获取玩家的语言设置
+     */
+    fun getPlayerLanguage(playerId: UUID): String {
+        val setting = playerSettings[playerId]
+        if (setting == null) {
+            // 玩家没有设置，默认使用服务器默认语言
+            return currentLanguage
+        }
+        
+        // 返回当前设置的语言
+        return setting.first
+    }
+    
+    /**
+     * 获取玩家的语言模式
+     */
+    fun getPlayerLanguageMode(playerId: UUID): LanguageMode {
+        return playerSettings[playerId]?.second ?: LanguageMode.AUTO
+    }
+    
+    /**
+     * 设置玩家语言为自动模式
+     */
+    fun setPlayerLanguageAuto(playerId: UUID, clientLanguageCode: String): Boolean {
+        val language = determineLanguageFromClientCode(clientLanguageCode)
+        playerSettings[playerId] = Pair(language, LanguageMode.AUTO)
+        logger.info("Set player $playerId language to AUTO (detected as: $language)")
+        return true
+    }
+    
+    /**
+     * 手动设置玩家语言
+     */
+    fun setPlayerLanguageManual(playerId: UUID, lang: String): Boolean {
+        if (!translations.containsKey(lang)) {
+            logger.warn("Language not found: $lang")
+            return false
+        }
+        
+        playerSettings[playerId] = Pair(lang, LanguageMode.MANUAL)
+        logger.info("Set player $playerId language to $lang (manual mode)")
+        return true
+    }
+    
+    /**
+     * 根据玩家ID和客户端语言获取本地化字符串
+     */
+    fun getStringForPlayer(playerId: UUID, clientLanguageCode: String, key: String, vararg args: Any): String {
+        // 获取该玩家应该使用的语言
+        val playerSetting = playerSettings[playerId]
+        
+        // 确定最终使用的语言
+        val langToUse = when {
+            // 没有设置或是自动模式，则根据客户端语言确定
+            playerSetting == null || playerSetting.second == LanguageMode.AUTO -> 
+                determineLanguageFromClientCode(clientLanguageCode)
+            
+            // 手动模式，使用设置的语言
+            else -> playerSetting.first
+        }
+        
+        // 获取翻译
+        val translation = translations[langToUse] ?: translations["en_US"] ?: return key
+        val value = translation[key] ?: return key
+        return if (args.isEmpty()) value else String.format(value, *args)
+    }
+} 
