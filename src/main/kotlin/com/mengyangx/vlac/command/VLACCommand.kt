@@ -183,8 +183,8 @@ object VLACCommand {
             return 0
         }
         
-        // 在1.21.5中无法直接访问clientLanguageCode，默认使用英文
-        val clientLanguageCode = "en_us"
+        // 使用getClientOptions().language()获取玩家客户端语言
+        val clientLanguageCode = player.getClientOptions().language()
         LanguageManager.setPlayerLanguageAuto(player.uuid, clientLanguageCode)
         val detectedLang = LanguageManager.determineLanguageFromClientCode(clientLanguageCode)
         
@@ -205,8 +205,8 @@ object VLACCommand {
         if (lang != "zh_CN" && lang != "en_US") {
             // 根据玩家或控制台显示不同的语言
             if (player != null) {
-                // 在1.21.5中无法直接访问clientLanguageCode，默认使用英文
-                val clientLanguageCode = "en_us"
+                // 使用getClientOptions().language()获取玩家客户端语言
+                val clientLanguageCode = player.getClientOptions().language()
                 val unsupported = LanguageManager.getStringForPlayer(player.uuid, clientLanguageCode, "vlac.command.language.unsupported")
                 val available = LanguageManager.getStringForPlayer(player.uuid, clientLanguageCode, "vlac.command.language.available")
                 source.sendFeedback({ Text.literal("§c$unsupported: $lang, $available: zh_CN, en_US, auto") }, true)
@@ -219,8 +219,8 @@ object VLACCommand {
         // 玩家设置语言
         if (player != null) {
             // 为该玩家设置手动语言模式
-            // 在1.21.5中无法直接访问clientLanguageCode，默认使用英文
-            val clientLanguageCode = "en_us"
+            // 使用getClientOptions().language()获取玩家客户端语言
+            val clientLanguageCode = player.getClientOptions().language()
             LanguageManager.setPlayerLanguageManual(player.uuid, lang)
             
             val success = LanguageManager.getStringForPlayer(player.uuid, clientLanguageCode, "vlac.command.language.success")
@@ -251,8 +251,8 @@ object VLACCommand {
         val player = source.player
         
         if (player != null) {
-            // 在1.21.5中无法直接访问clientLanguageCode，默认使用英文
-            val clientLanguageCode = "en_us"
+            // 使用getClientOptions().language()获取玩家客户端语言
+            val clientLanguageCode = player.getClientOptions().language()
             val mode = LanguageManager.getPlayerLanguageMode(player.uuid)
             val currentLang = LanguageManager.getPlayerLanguage(player.uuid)
             
@@ -310,8 +310,8 @@ object VLACCommand {
         
         // 根据玩家或控制台选择适当的语言
         if (player != null) {
-            // 在1.21.5中无法直接访问clientLanguageCode，默认使用英文
-            val clientLanguageCode = "en_us"
+            // 使用getClientOptions().language()获取玩家客户端语言
+            val clientLanguageCode = player.getClientOptions().language()
             
             // 使用玩家特定的语言
             val title = LanguageManager.getStringForPlayer(player.uuid, clientLanguageCode, "vlac.command.help.title")
